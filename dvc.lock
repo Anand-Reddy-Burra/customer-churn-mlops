@@ -24,3 +24,36 @@ stages:
       hash: md5
       md5: 94a252cfbf9bf2847e6835168bbfff1b
       size: 708211
+  train:
+    cmd: python -m src.models.train
+    deps:
+    - path: data/raw/WA_Fn-UseC_-Telco-Customer-Churn.csv
+      hash: md5
+      md5: d152fdf9607f2a86c613891defb86d17
+      size: 970456
+    - path: src/features/build_features.py
+      hash: md5
+      md5: 04a34f302786ce94da6efd39bce5a24c
+      size: 3789
+    - path: src/models/train.py
+      hash: md5
+      md5: 4e171c155536163a3a9d27d7630a15eb
+      size: 15018
+    params:
+      params.yaml:
+        models.decision_tree.max_depth: 5
+        models.decision_tree.random_state: 42
+        models.logistic_regression.max_iter: 1000
+        models.random_forest.max_depth: 10
+        models.random_forest.n_estimators: 100
+        models.random_forest.random_state: 42
+        training.scoring_metric: f1
+    outs:
+    - path: artifacts/model/model.joblib
+      hash: md5
+      md5: 2ba7de2e11f50bbcd1c78da9e3cf09ce
+      size: 14372
+    - path: artifacts/model/model_results.csv
+      hash: md5
+      md5: b4882e10db5b0f9e77872ee3af0234ee
+      size: 377
