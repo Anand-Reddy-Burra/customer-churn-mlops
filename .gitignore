@@ -1,0 +1,23 @@
+cat > .gitignore <<'EOF'
+venv/
+__pycache__/
+*.pyc
+.DS_Store
+
+.ipynb_checkpoints/
+
+mlruns/
+.mlflow/
+
+.dvc/cache/
+
+.env
+
+logs/*.log
+
+data/raw/*
+!data/raw/.gitkeep
+
+data/processed/*
+!data/processed/.gitkeep
+EOF
