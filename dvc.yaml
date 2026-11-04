@@ -1,0 +1,32 @@
+stages:
+
+  preprocess:
+    cmd: python -m src.data.preprocess
+    deps:
+      - data/raw/WA_Fn-UseC_-Telco-Customer-Churn.csv
+      - src/data/preprocess.py
+    params:
+      - data.test_size
+      - data.random_state
+    outs:
+      - data/processed/train.csv
+      - data/processed/test.csv
+
+  train:
+    cmd: python -m src.models.train
+    deps:
+      - data/raw/WA_Fn-UseC_-Telco-Customer-Churn.csv
+      - src/models/train.py
+      - src/features/build_features.py
+    params:
+      - models.logistic_regression.max_iter
+      - models.decision_tree.max_depth
+      - models.decision_tree.random_state
+      - models.random_forest.n_estimators
+      - models.random_forest.max_depth
+      - models.random_forest.random_state
+      - training.scoring_metric
+    outs:
+      - artifacts/model/model.joblib
+    metrics:
+      - artifacts/model/model_results.csv
