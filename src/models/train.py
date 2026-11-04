@@ -1,6 +1,8 @@
+
 import os
 import joblib
 import pandas as pd
+import mlflow
 
 from sklearn.model_selection import train_test_split
 from sklearn.compose import ColumnTransformer
@@ -23,27 +25,50 @@ from sklearn.metrics import (
 from src.features.build_features import create_features
 
 
+# ============================================================
+# PROJECT CONFIGURATION
+# ============================================================
+
 DATA_PATH = "data/raw/WA_Fn-UseC_-Telco-Customer-Churn.csv"
+
 MODEL_DIR = "artifacts/model"
 
+MLFLOW_EXPERIMENT = "Customer Churn Prediction"
+
+
+# ============================================================
+# LOAD AND PREPARE DATA
+# ============================================================
 
 def load_and_prepare_data():
+
     print("Loading dataset...")
 
-    df = pd.read_csv(DATA_PATH, sep="\t")
+    # Dataset is tab-separated even though the file extension is .csv
+    df = pd.read_csv(
+        DATA_PATH,
+        sep="\t"
+    )
 
     print("Original shape:", df.shape)
 
-    # Feature engineering
+    # --------------------------------------------------------
+    # Feature Engineering
+    # --------------------------------------------------------
+
+    print("Creating engineered features...")
+
     df = create_features(df)
 
-    # Convert TotalCharges to numeric
+    # --------------------------------------------------------
+    # Convert numeric columns
+    # --------------------------------------------------------
+
     df["TotalCharges"] = pd.to_numeric(
         df["TotalCharges"],
         errors="coerce"
     )
 
-    # Convert numeric columns
     df["tenure"] = pd.to_numeric(
         df["tenure"],
         errors="coerce"
@@ -54,38 +79,79 @@ def load_and_prepare_data():
         errors="coerce"
     )
 
+    # --------------------------------------------------------
     # Remove customer ID
-    df = df.drop(columns=["customerID"])
+    # --------------------------------------------------------
 
-    # Convert target
-    df["Churn"] = df["Churn"].map({
-        "No": 0,
-        "Yes": 1
-    })
+    df = df.drop(
+        columns=["customerID"],
+        errors="ignore"
+    )
+
+    # --------------------------------------------------------
+    # Convert target variable
+    # No = 0
+    # Yes = 1
+    # --------------------------------------------------------
+
+    df["Churn"] = df["Churn"].map(
+        {
+            "No": 0,
+            "Yes": 1
+        }
+    )
 
     # Remove rows where target is missing
-    df = df.dropna(subset=["Churn"])
+    df = df.dropna(
+        subset=["Churn"]
+    )
 
-    X = df.drop(columns=["Churn"])
+    # --------------------------------------------------------
+    # Separate features and target
+    # --------------------------------------------------------
+
+    X = df.drop(
+        columns=["Churn"]
+    )
+
     y = df["Churn"]
 
     return X, y
 
 
+# ============================================================
+# BUILD PREPROCESSING PIPELINE
+# ============================================================
+
 def build_preprocessor(X):
+
+    # Numeric columns
     numeric_columns = X.select_dtypes(
-        include=["int64", "float64"]
+        include=["number"]
     ).columns.tolist()
 
+    # Categorical columns
     categorical_columns = X.select_dtypes(
-        include=["object", "category"]
+        include=["object", "category", "string"]
     ).columns.tolist()
+
+    print("\nNumeric columns:")
+    print(numeric_columns)
+
+    print("\nCategorical columns:")
+    print(categorical_columns)
+
+    # --------------------------------------------------------
+    # Numeric preprocessing
+    # --------------------------------------------------------
 
     numeric_pipeline = Pipeline(
         steps=[
             (
                 "imputer",
-                SimpleImputer(strategy="median")
+                SimpleImputer(
+                    strategy="median"
+                )
             ),
             (
                 "scaler",
@@ -94,11 +160,17 @@ def build_preprocessor(X):
         ]
     )
 
+    # --------------------------------------------------------
+    # Categorical preprocessing
+    # --------------------------------------------------------
+
     categorical_pipeline = Pipeline(
         steps=[
             (
                 "imputer",
-                SimpleImputer(strategy="most_frequent")
+                SimpleImputer(
+                    strategy="most_frequent"
+                )
             ),
             (
                 "encoder",
@@ -108,6 +180,10 @@ def build_preprocessor(X):
             )
         ]
     )
+
+    # --------------------------------------------------------
+    # Combine preprocessing
+    # --------------------------------------------------------
 
     preprocessor = ColumnTransformer(
         transformers=[
@@ -127,11 +203,28 @@ def build_preprocessor(X):
     return preprocessor
 
 
-def evaluate_model(model, X_test, y_test, model_name):
+# ============================================================
+# MODEL EVALUATION
+# ============================================================
 
-    predictions = model.predict(X_test)
+def evaluate_model(
+    model,
+    X_test,
+    y_test,
+    model_name
+):
 
-    probabilities = model.predict_proba(X_test)[:, 1]
+    predictions = model.predict(
+        X_test
+    )
+
+    probabilities = model.predict_proba(
+        X_test
+    )[:, 1]
+
+    # --------------------------------------------------------
+    # Metrics
+    # --------------------------------------------------------
 
     accuracy = accuracy_score(
         y_test,
@@ -161,15 +254,44 @@ def evaluate_model(model, X_test, y_test, model_name):
         probabilities
     )
 
+    # --------------------------------------------------------
+    # Display results
+    # --------------------------------------------------------
+
     print("\n" + "=" * 50)
+
     print(model_name)
+
     print("=" * 50)
 
-    print("Accuracy :", round(accuracy, 4))
-    print("Precision:", round(precision, 4))
-    print("Recall   :", round(recall, 4))
-    print("F1 Score :", round(f1, 4))
-    print("ROC-AUC  :", round(roc_auc, 4))
+    print(
+        "Accuracy :",
+        round(accuracy, 4)
+    )
+
+    print(
+        "Precision:",
+        round(precision, 4)
+    )
+
+    print(
+        "Recall   :",
+        round(recall, 4)
+    )
+
+    print(
+        "F1 Score :",
+        round(f1, 4)
+    )
+
+    print(
+        "ROC-AUC  :",
+        round(roc_auc, 4)
+    )
+
+    # --------------------------------------------------------
+    # Return results
+    # --------------------------------------------------------
 
     return {
         "model": model_name,
@@ -181,13 +303,34 @@ def evaluate_model(model, X_test, y_test, model_name):
     }
 
 
+# ============================================================
+# TRAIN MODELS
+# ============================================================
+
 def train_models():
+
+    # --------------------------------------------------------
+    # Load and prepare data
+    # --------------------------------------------------------
 
     X, y = load_and_prepare_data()
 
-    print("\nFeatures:", X.shape[1])
-    print("Target distribution:")
-    print(y.value_counts())
+    print(
+        "\nFeatures:",
+        X.shape[1]
+    )
+
+    print(
+        "\nTarget distribution:"
+    )
+
+    print(
+        y.value_counts()
+    )
+
+    # --------------------------------------------------------
+    # Train/Test Split
+    # --------------------------------------------------------
 
     X_train, X_test, y_train, y_test = train_test_split(
         X,
@@ -197,10 +340,19 @@ def train_models():
         stratify=y
     )
 
-    print("\nTraining samples:", len(X_train))
-    print("Testing samples :", len(X_test))
+    print(
+        "\nTraining samples:",
+        len(X_train)
+    )
 
-    preprocessor = build_preprocessor(X_train)
+    print(
+        "Testing samples :",
+        len(X_test)
+    )
+
+    # --------------------------------------------------------
+    # Define models
+    # --------------------------------------------------------
 
     models = {
 
@@ -210,24 +362,58 @@ def train_models():
         ),
 
         "Decision Tree": DecisionTreeClassifier(
-            random_state=42,
-            max_depth=5
+            max_depth=5,
+            random_state=42
         ),
 
         "Random Forest": RandomForestClassifier(
             n_estimators=200,
-            random_state=42,
-            max_depth=10
+            max_depth=10,
+            random_state=42
         )
     }
+
+    # --------------------------------------------------------
+    # MLflow experiment
+    # --------------------------------------------------------
+
+    mlflow.set_experiment(
+        MLFLOW_EXPERIMENT
+    )
+
+    print(
+        "\nMLflow experiment:",
+        MLFLOW_EXPERIMENT
+    )
+
+    # --------------------------------------------------------
+    # Store results
+    # --------------------------------------------------------
 
     results = []
 
     trained_models = {}
 
+    # ========================================================
+    # TRAIN EACH MODEL
+    # ========================================================
+
     for model_name, model in models.items():
 
-        print("\nTraining:", model_name)
+        print(
+            "\nTraining:",
+            model_name
+        )
+
+        # Create a fresh preprocessor
+        # for every model
+        preprocessor = build_preprocessor(
+            X_train
+        )
+
+        # ----------------------------------------------------
+        # Complete ML pipeline
+        # ----------------------------------------------------
 
         pipeline = Pipeline(
             steps=[
@@ -242,37 +428,173 @@ def train_models():
             ]
         )
 
-        pipeline.fit(
-            X_train,
-            y_train
+        # ----------------------------------------------------
+        # Start MLflow run
+        # ----------------------------------------------------
+
+        with mlflow.start_run(
+            run_name=model_name
+        ):
+
+            # ------------------------------------------------
+            # Train model
+            # ------------------------------------------------
+
+            pipeline.fit(
+                X_train,
+                y_train
+            )
+
+            # ------------------------------------------------
+            # Evaluate model
+            # ------------------------------------------------
+
+            result = evaluate_model(
+                pipeline,
+                X_test,
+                y_test,
+                model_name
+            )
+
+            # ------------------------------------------------
+            # Log common parameters
+            # ------------------------------------------------
+
+            mlflow.log_param(
+                "model_name",
+                model_name
+            )
+
+            mlflow.log_param(
+                "test_size",
+                0.2
+            )
+
+            mlflow.log_param(
+                "random_state",
+                42
+            )
+
+            # ------------------------------------------------
+            # Log model-specific parameters
+            # ------------------------------------------------
+
+            if model_name == "Logistic Regression":
+
+                mlflow.log_param(
+                    "max_iter",
+                    1000
+                )
+
+            elif model_name == "Decision Tree":
+
+                mlflow.log_param(
+                    "max_depth",
+                    5
+                )
+
+            elif model_name == "Random Forest":
+
+                mlflow.log_param(
+                    "n_estimators",
+                    200
+                )
+
+                mlflow.log_param(
+                    "max_depth",
+                    10
+                )
+
+            # ------------------------------------------------
+            # Log metrics
+            # ------------------------------------------------
+
+            mlflow.log_metric(
+                "accuracy",
+                result["accuracy"]
+            )
+
+            mlflow.log_metric(
+                "precision",
+                result["precision"]
+            )
+
+            mlflow.log_metric(
+                "recall",
+                result["recall"]
+            )
+
+            mlflow.log_metric(
+                "f1",
+                result["f1"]
+            )
+
+            mlflow.log_metric(
+                "roc_auc",
+                result["roc_auc"]
+            )
+
+            # ------------------------------------------------
+            # Log model to MLflow
+            # ------------------------------------------------
+
+            mlflow.sklearn.log_model(
+                sk_model=pipeline,
+                name="model",
+                skops_trusted_types=["numpy.dtype"]
+            )
+            print(
+                "MLflow run logged successfully."
+            )
+        # ----------------------------------------------------
+        # Store results
+        # ----------------------------------------------------
+
+        results.append(
+            result
         )
 
-        result = evaluate_model(
-            pipeline,
-            X_test,
-            y_test,
+        trained_models[
             model_name
-        )
+        ] = pipeline
 
-        results.append(result)
+    # ========================================================
+    # MODEL COMPARISON
+    # ========================================================
 
-        trained_models[model_name] = pipeline
-
-    results_df = pd.DataFrame(results)
-
-    print("\n")
-    print("=" * 60)
-    print("MODEL COMPARISON")
-    print("=" * 60)
-
-    print(
-        results_df.sort_values(
-            by="f1",
-            ascending=False
-        ).to_string(index=False)
+    results_df = pd.DataFrame(
+        results
     )
 
-    # Select best model using F1-score
+    print("\n")
+
+    print(
+        "=" * 60
+    )
+
+    print(
+        "MODEL COMPARISON"
+    )
+
+    print(
+        "=" * 60
+    )
+
+    print(
+        results_df
+        .sort_values(
+            by="f1",
+            ascending=False
+        )
+        .to_string(
+            index=False
+        )
+    )
+
+    # ========================================================
+    # SELECT BEST MODEL
+    # ========================================================
+
     best_model_name = results_df.loc[
         results_df["f1"].idxmax(),
         "model"
@@ -282,23 +604,32 @@ def train_models():
         best_model_name
     ]
 
-    print("\nBest Model:", best_model_name)
+    best_f1 = results_df[
+        "f1"
+    ].max()
+
+    print(
+        "\nBest Model:",
+        best_model_name
+    )
 
     print(
         "Best F1 Score:",
         round(
-            results_df["f1"].max(),
+            best_f1,
             4
         )
     )
 
-    # Create model directory
+    # ========================================================
+    # SAVE MODEL
+    # ========================================================
+
     os.makedirs(
         MODEL_DIR,
         exist_ok=True
     )
 
-    # Save complete pipeline
     model_path = os.path.join(
         MODEL_DIR,
         "model.joblib"
@@ -309,7 +640,15 @@ def train_models():
         model_path
     )
 
-    # Save comparison results
+    print(
+        "\nModel saved to:",
+        model_path
+    )
+
+    # ========================================================
+    # SAVE MODEL RESULTS
+    # ========================================================
+
     results_path = os.path.join(
         MODEL_DIR,
         "model_results.csv"
@@ -320,9 +659,16 @@ def train_models():
         index=False
     )
 
-    print("\nModel saved to:", model_path)
-    print("Results saved to:", results_path)
+    print(
+        "Results saved to:",
+        results_path
+    )
 
+
+# ============================================================
+# MAIN
+# ============================================================
 
 if __name__ == "__main__":
+
     train_models()
