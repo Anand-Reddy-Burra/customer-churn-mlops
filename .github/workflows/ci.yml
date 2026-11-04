@@ -27,20 +27,30 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements-docker.txt
-          pip install pytest httpx pyyaml dvc
+          pip install pytest httpx pyyaml
 
-      - name: Pull DVC data
+      - name: Download dataset
         run: |
-          dvc pull
+          mkdir -p data/raw
+          curl -L "https://raw.githubusercontent.com/IBM/telco-customer-churn-on-icp4d/master/data/WA_Fn-UseC_-Telco-Customer-Churn.csv" \
+            -o data/raw/WA_Fn-UseC_-Telco-Customer-Churn.csv
 
-      - name: Reproduce DVC pipeline
+      - name: Verify dataset
         run: |
-          dvc repro
+          ls -lh data/raw/
+          python -c "import pandas as pd; df=pd.read_csv('data/raw/WA_Fn-UseC_-Telco-Customer-Churn.csv'); print('Dataset shape:', df.shape)"
+
+      - name: Run preprocessing
+        run: |
+          python -m src.data.preprocess
+
+      - name: Train model
+        run: |
+          python -m src.models.train
 
       - name: Run tests
         run: |
           python -m pytest -v
-
 
   docker:
     runs-on: ubuntu-latest
