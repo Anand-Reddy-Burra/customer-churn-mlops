@@ -541,7 +541,10 @@ def train_models():
             mlflow.sklearn.log_model(
                 sk_model=pipeline,
                 name="model",
-                skops_trusted_types=["numpy.dtype"]
+                skops_trusted_types=[
+                            "numpy.dtype",
+                            "sklearn.tree._tree.Tree"
+                ]
             )
             print(
                 "MLflow run logged successfully."
@@ -549,7 +552,7 @@ def train_models():
         # ----------------------------------------------------
         # Store results
         # ----------------------------------------------------
-        
+
 
 
 
