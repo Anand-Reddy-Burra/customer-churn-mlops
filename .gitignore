@@ -17,6 +17,7 @@ mlflow.db
 logs/*.log
 
 data/raw/*
+!data/raw/*.dvc
 !data/raw/.gitkeep
 
 data/processed/*
