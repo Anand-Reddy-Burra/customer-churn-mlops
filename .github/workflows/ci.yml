@@ -29,14 +29,10 @@ jobs:
           pip install -r requirements-docker.txt
           pip install pytest httpx pyyaml
 
-      - 
-
-      
       - name: Verify dataset
         run: |
           ls -lh data/raw/
-          python -c "import pandas as pd; df=pd.read_csv('data/raw/WA_Fn-UseC_-Telco-Customer-
-Churn.csv', sep='\t'); print('Dataset shape:', df.shape); assert df.shape == (7043, 21)"
+          python -c "import pandas as pd; df=pd.read_csv('data/raw/WA_Fn-UseC_-Telco-Customer-Churn.csv', sep='\t'); print('Dataset shape:', df.shape); assert df.shape == (7043, 21)"
 
       - name: Run preprocessing
         run: |
@@ -49,6 +45,7 @@ Churn.csv', sep='\t'); print('Dataset shape:', df.shape); assert df.shape == (70
       - name: Run tests
         run: |
           python -m pytest -v
+
 
   docker:
     runs-on: ubuntu-latest
