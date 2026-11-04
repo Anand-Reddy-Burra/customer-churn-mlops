@@ -29,16 +29,14 @@ jobs:
           pip install -r requirements-docker.txt
           pip install pytest httpx pyyaml
 
-      - name: Download dataset
-        run: |
-          mkdir -p data/raw
-          curl -L "https://raw.githubusercontent.com/IBM/telco-customer-churn-on-icp4d/master/data/WA_Fn-UseC_-Telco-Customer-Churn.csv" \
-            -o data/raw/WA_Fn-UseC_-Telco-Customer-Churn.csv
+      - 
 
+      
       - name: Verify dataset
         run: |
           ls -lh data/raw/
-          python -c "import pandas as pd; df=pd.read_csv('data/raw/WA_Fn-UseC_-Telco-Customer-Churn.csv'); print('Dataset shape:', df.shape)"
+          python -c "import pandas as pd; df=pd.read_csv('data/raw/WA_Fn-UseC_-Telco-Customer-
+Churn.csv', sep='\t'); print('Dataset shape:', df.shape); assert df.shape == (7043, 21)"
 
       - name: Run preprocessing
         run: |
