@@ -8,6 +8,7 @@ __pycache__/
 
 mlruns/
 .mlflow/
+mlflow.db
 
 .dvc/cache/
 
